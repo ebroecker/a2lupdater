@@ -12,4 +12,5 @@ Supports strucure elements (this is why DWARF-Info is used)
 * currently NO SUPPORT for "*SYMBOL_LINK*"
 
 any comments are welcome
+
 Eduard
