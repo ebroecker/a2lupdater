@@ -263,7 +263,7 @@ parser = OptionParser(usage=usage)
 #parser.add_option("", "--dbcCharset", 
 #                  dest="dbcCharset", default="iso-8859-1",
 #                  help="Charset of Comments in dbc, maybe utf-8")
-parser.add_option("-s", "--useSymbolTable", action="store_false",
+parser.add_option("-s", "--useSymbolTable", action="store_true",
                   dest="useSymbolTable", default=False,
                   help="use symboltable of elf-file (much faster, but without support for structs)")
 (cmdlineOptions, args) = parser.parse_args()
