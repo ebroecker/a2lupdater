@@ -10,6 +10,7 @@ Supports strucure elements (this is why DWARF-Info is used)
 * currently this script only runs under windows (easy to adopt)
 * currently only *MEASUREMENT* and *CALIBRATION* labels are supportet
 * currently NO SUPPORT for "*SYMBOL_LINK*"
+* currently NO SUPPORT for "*LINK_MAP*"
 
 any comments are welcome
 
