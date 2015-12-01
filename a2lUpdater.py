@@ -52,37 +52,40 @@ def parseDwarfOutput(elfFileName):
 
 
 def getDwarfType(typeAddress):
+        print "getDwarfType %x" % (typeAddress)
         typeFound = 0
         retVal = {}
         for i in range(len(dwarfArray)):
-                if (dwarfArray[i]["address"] == typeAddress):
-                        typeFound = i
-                        while(i < len(dwarfArray)):
-                                if dwarfArray[i]["name"] == "DW_AT_name":
-                                        retVal["name"] = dwarfArray[i]["value"]
-                                elif dwarfArray[i]["name"] == "DW_AT_type":
-                                        dummy = getDwarfType(int(dwarfArray[i]["value"][1:-1],0))
-                                        retVal["type"] = dummy[1]
-                                elif dwarfArray[i]["name"] == "DW_AT_byte_size":
-                                        retVal["size"] = dwarfArray[i]["value"]
-                                elif dwarfArray[i]["name"] == "DW_AT_data_member_location":
-                                        match = re.match('.*DW_OP_plus_uconst:(.*)\)',dwarfArray[i]["value"])
-                                        if match is not None:
-                                                retVal["offset"] = (match.group(1))
-                                        else:
-                                                print ("")
-                                i = i+1;
-                                countElements = 0
-                                while i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] > dwarfArray[typeFound]["deepth"]:
-                                        dummy = getDwarfType(dwarfArray[i]["address"])
-                                        i = dummy[0]
-                                        if "name" in dummy[1]:
-                                                retVal["%d" % (countElements)] = dummy[1]
-                                                countElements += 1
-                                if i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] <= dwarfArray[typeFound]["deepth"]:
-                                        retVal["countElements"] = countElements
-                                        break
-                        break
+            if (dwarfArray[i]["address"] == typeAddress):
+                typeFound = i
+                while(i < len(dwarfArray)):
+                    if 'DW_TAG_array_type' in dwarfArray[i]["value"]:
+                        retVal["array"] = "1"
+                    elif dwarfArray[i]["name"] == "DW_AT_name":
+                        retVal["name"] = dwarfArray[i]["value"]
+                    elif dwarfArray[i]["name"] == "DW_AT_type":
+                        dummy = getDwarfType(int(dwarfArray[i]["value"][1:-1],0))
+                        retVal["type"] = dummy[1]
+                    elif dwarfArray[i]["name"] == "DW_AT_byte_size":
+                        retVal["size"] = dwarfArray[i]["value"]
+                    elif dwarfArray[i]["name"] == "DW_AT_data_member_location":
+                        match = re.match('.*DW_OP_plus_uconst:(.*)\)',dwarfArray[i]["value"])
+                        if match is not None:
+                                retVal["offset"] = (match.group(1))
+                        else:
+                                print ("")
+                    i = i+1;
+                    countElements = 0
+                    while i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] > dwarfArray[typeFound]["deepth"]:
+                        dummy = getDwarfType(dwarfArray[i]["address"])
+                        i = dummy[0]
+                        if "name" in dummy[1]:
+                            retVal["%d" % (countElements)] = dummy[1]
+                            countElements += 1
+                    if i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] <= dwarfArray[typeFound]["deepth"]:
+                            retVal["countElements"] = countElements
+                            break
+                break
         return i, retVal
 
 def getDwarfVar(name):
@@ -92,19 +95,35 @@ def getDwarfVar(name):
         for i in range(len(dwarfArray)):
                 if dwarfArray[i]["name"] == "DW_AT_name" and dwarfArray[i]["value"] == name:
                         foundArray = i
+                        while i > 0 and dwarfArray[i]["new"] != 1:
+                            i -= 1
+                        i += 1
                         while i < len(dwarfArray) and dwarfArray[i]["new"] != 1:
-                                if dwarfArray[i]["name"] == "DW_AT_location":
-                                        struct = 1
-                                        match = re.match(".*\(DW_OP_addr\:\ *([0-9a-f]+)\).*", dwarfArray[i]["value"])
-                                        if match is not None:
-                                                address = match.group(1)
-                                        break
-                                i += 1
+                            if dwarfArray[i]["name"] == "DW_AT_location":
+                                    struct = 1
+                                    match = re.match(".*\(DW_OP_addr\:\ *([0-9a-f]+)\).*", dwarfArray[i]["value"])
+                                    if match is not None:
+                                            address = match.group(1)
+                                    break
+                            if dwarfArray[i]["name"] == "DW_AT_declaration" and  dwarfArray[i]["value"] == "1":
+                                #skip deklaration
+                                foundArray = None
+                                break
+                            i += 1
                         #print name + " ",
-                        break
+                        if foundArray is not None:
+                            break
+
         if foundArray is not None:
-                typeAddr = int(dwarfArray[foundArray+1]["value"][1:-1],0)
+                currentDepth = dwarfArray[foundArray]["deepth"]
+                i = foundArray
+                while dwarfArray[i]["deepth"] == currentDepth and dwarfArray[i]["new"] != 1 and dwarfArray[i]["name"] != "DW_AT_type":
+                    i+=1
+                typeAddr = int(dwarfArray[i]["value"][1:-1],0)
                 type = getDwarfType(typeAddr)
+#                print hex(dwarfArray[foundArray]["address"])
+#                print "Type ",
+#                print type
                 if struct == 1:
                         type[1]["struct"] = 1
                 type[1]["address"] = address
@@ -142,11 +161,20 @@ def findAddress(name, useSymbolTable=False):
                         structPath = name.split('.')
                         FoundVar = getDwarfVar(structPath[0])
                         address = int(FoundVar["address"], 16)
+                        print "Address vorher %x" % (address)
                         for subLevel in structPath[1:]:
+                                if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
+                                    print "ARRAY - Index "
+                                    print "sublev ",
+                                    print subLevel
+                                    print "countElements %d" % (FoundVar["countElements"])
                                 for i in range(0, FoundVar["countElements"]):
+                                        print "%s == %s ??" % (subLevel, FoundVar["%d" % (i)]["name"])
                                         if subLevel == FoundVar["%d" % (i)]["name"]:
-                                                address += int(FoundVar["%d" % (i)]["offset"], 16)
-                                        break
+                                            print "FOUND %s" % (FoundVar["%d" % (i)]["offset"])
+                                            address += int(FoundVar["%d" % (i)]["offset"], 16)
+                                            break
+                                print "Address %x" % (address)
                         return "0x%x" % (address)
                 else:
                         FoundVar = getDwarfVar(name)
@@ -214,7 +242,6 @@ def updateA2L(fileName, useSymbolTable=False):
                         Token2 = ""
                         outline2 = ""
                 if Token == "BEGIN":
-#                        print "BEGIN"
                         [pos, tt, blockname] = getNextToken(pos, length)
                         if blockname == "CHARACTERISTIC":
                                 output += a2lInput[lastPos:pos]
@@ -281,7 +308,8 @@ if cmdlineOptions.useSymbolTable == True:
 else:
         parseDwarfOutput(args[0])
 print ("done")
-newA2l = updateA2L(args[1], cmdlineOptions.useSymbolTable)
-newA2lFile = open(args[2], "w")
-newA2lFile.write(newA2l)
-newA2lFile.close()
+print findAddress("_StartUp_FltLineNoRespX._0_.sErrorEnabled")
+#newA2l = updateA2L(args[1], cmdlineOptions.useSymbolTable)
+#newA2lFile = open(args[2], "w")
+#newA2lFile.write(newA2l)
+#newA2lFile.close()
