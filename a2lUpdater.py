@@ -52,7 +52,7 @@ def parseDwarfOutput(elfFileName):
 
 
 def getDwarfType(typeAddress):
-        print "getDwarfType %x" % (typeAddress)
+#        print "getDwarfType %x" % (typeAddress)
         typeFound = 0
         retVal = {}
         for i in range(len(dwarfArray)):
@@ -148,42 +148,50 @@ def printDwarfVar(FoundType, baseAddr, name):
 
 
 def findAddress(name, useSymbolTable=False):
-        if useSymbolTable == True:
-                global symTab
-                if name in symTab:
-                        return "0x%x" % int(symTab[name], 16)
+    
+    if useSymbolTable == True:
+        global symTab
+        if name in symTab:
+                return "0x%x" % int(symTab[name], 16)
+        else:
+               print ("name: " + name + " not found ")
+               return "0"
+        
+    else:
+        if "." in name:
+                structPath = name.split('.')
+                FoundVar = getDwarfVar(structPath[0])
+                address = int(FoundVar["address"], 16)
+#                       print "Address vorher %x" % (address)
+                for subLevel in structPath[1:]:
+#                               print "sublevel ",
+#                               print subLevel
+#                               print "addr: %x" % (address)
+                        if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
+                            arrayIndex = int(subLevel[1:-1])
+                            if FoundVar.has_key("array"):
+                                address +=  int(FoundVar["size"])*arrayIndex
+                                FoundVar = FoundVar["type"]
+                                continue
+
+#                                print "countElements ",
+#                                print FoundVar["countElements"]
+                        for i in range(0, FoundVar["countElements"]):
+#                                   print "%s == %s ??" % (subLevel, FoundVar["%d" % (i)]["name"])
+                            if subLevel == FoundVar["%d" % (i)]["name"]:
+#                                      print "FOUND %s" % (FoundVar["%d" % (i)]["offset"])
+                                address += int(FoundVar["%d" % (i)]["offset"], 16)
+                                break
+#                                print "Address %x" % (address)
+                return "0x%x" % (address)
+        else:
+                FoundVar = getDwarfVar(name)
+                if "address" in FoundVar:
+#                       print "name: " + name + " address: " + FoundVar["address"]
+                        return "0x%x" % int(FoundVar["address"], 16)
                 else:
                         print ("name: " + name + " not found ")
                         return "0"
-                
-        else:
-                if "." in name:
-                        structPath = name.split('.')
-                        FoundVar = getDwarfVar(structPath[0])
-                        address = int(FoundVar["address"], 16)
-                        print "Address vorher %x" % (address)
-                        for subLevel in structPath[1:]:
-                                if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
-                                    print "ARRAY - Index "
-                                    print "sublev ",
-                                    print subLevel
-                                    print "countElements %d" % (FoundVar["countElements"])
-                                for i in range(0, FoundVar["countElements"]):
-                                        print "%s == %s ??" % (subLevel, FoundVar["%d" % (i)]["name"])
-                                        if subLevel == FoundVar["%d" % (i)]["name"]:
-                                            print "FOUND %s" % (FoundVar["%d" % (i)]["offset"])
-                                            address += int(FoundVar["%d" % (i)]["offset"], 16)
-                                            break
-                                print "Address %x" % (address)
-                        return "0x%x" % (address)
-                else:
-                        FoundVar = getDwarfVar(name)
-                        if "address" in FoundVar:
-        #                       print "name: " + name + " address: " + FoundVar["address"]
-                                return "0x%x" % int(FoundVar["address"], 16)
-                        else:
-                                print ("name: " + name + " not found ")
-                                return "0"
 
 
 #################################################
@@ -308,8 +316,8 @@ if cmdlineOptions.useSymbolTable == True:
 else:
         parseDwarfOutput(args[0])
 print ("done")
-print findAddress("_StartUp_FltLineNoRespX._0_.sErrorEnabled")
-#newA2l = updateA2L(args[1], cmdlineOptions.useSymbolTable)
-#newA2lFile = open(args[2], "w")
-#newA2lFile.write(newA2l)
-#newA2lFile.close()
+#print findAddress("_StartUp_FltLineNoRespX._0_.sCellInc")
+newA2l = updateA2L(args[1], cmdlineOptions.useSymbolTable)
+newA2lFile = open(args[2], "w")
+newA2lFile.write(newA2l)
+newA2lFile.close()
