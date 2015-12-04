@@ -170,7 +170,7 @@ def findAddress(name, useSymbolTable=False):
                         if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
                             arrayIndex = int(subLevel[1:-1])
                             if FoundVar.has_key("array"):
-                                address +=  int(FoundVar["size"])*arrayIndex
+                                address +=  int(FoundVar["type"]["size"])*int(arrayIndex)
                                 FoundVar = FoundVar["type"]
                                 continue
 
@@ -316,7 +316,6 @@ if cmdlineOptions.useSymbolTable == True:
 else:
         parseDwarfOutput(args[0])
 print ("done")
-#print findAddress("_StartUp_FltLineNoRespX._0_.sCellInc")
 newA2l = updateA2L(args[1], cmdlineOptions.useSymbolTable)
 newA2lFile = open(args[2], "w")
 newA2lFile.write(newA2l)
