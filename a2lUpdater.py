@@ -52,7 +52,7 @@ def parseDwarfOutput(elfFileName):
 
 
 def getDwarfType(typeAddress):
-#        print "getDwarfType %x" % (typeAddress)
+#        find type at DIE-Address
         typeFound = 0
         retVal = {}
         for i in range(len(dwarfArray)):
@@ -60,15 +60,20 @@ def getDwarfType(typeAddress):
                 typeFound = i
                 while(i < len(dwarfArray)):
                     if 'DW_TAG_array_type' in dwarfArray[i]["value"]:
+                        #array type found
                         retVal["array"] = "1"
                     elif dwarfArray[i]["name"] == "DW_AT_name":
+                        #name of type
                         retVal["name"] = dwarfArray[i]["value"]
                     elif dwarfArray[i]["name"] == "DW_AT_type":
+                        #type of type (this is done, until basetype is referenced)
                         dummy = getDwarfType(int(dwarfArray[i]["value"][1:-1],0))
                         retVal["type"] = dummy[1]
                     elif dwarfArray[i]["name"] == "DW_AT_byte_size":
+                        #size of type
                         retVal["size"] = dwarfArray[i]["value"]
                     elif dwarfArray[i]["name"] == "DW_AT_data_member_location":
+                        #structre element found at location:
                         match = re.match('.*DW_OP_plus_uconst:(.*)\)',dwarfArray[i]["value"])
                         if match is not None:
                                 retVal["offset"] = (match.group(1))
@@ -76,13 +81,16 @@ def getDwarfType(typeAddress):
                                 print ("")
                     i = i+1;
                     countElements = 0
+                    # search for sub-DIEs (structure elements)
                     while i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] > dwarfArray[typeFound]["deepth"]:
                         dummy = getDwarfType(dwarfArray[i]["address"])
                         i = dummy[0]
                         if "name" in dummy[1]:
+                            #name of structure element
                             retVal["%d" % (countElements)] = dummy[1]
                             countElements += 1
                     if i < len(dwarfArray) and dwarfArray[i]["new"] == 1 and dwarfArray[i]["deepth"] <= dwarfArray[typeFound]["deepth"]:
+                            #probably all subelements found, so save the count
                             retVal["countElements"] = countElements
                             break
                 break
@@ -93,11 +101,14 @@ def getDwarfVar(name):
         address = ""
         struct = 0
         for i in range(len(dwarfArray)):
+                # Array or variablename?
                 if dwarfArray[i]["name"] == "DW_AT_name" and dwarfArray[i]["value"] == name:
                         foundArray = i
+                        #goto top of this DIE
                         while i > 0 and dwarfArray[i]["new"] != 1:
                             i -= 1
                         i += 1
+                        #walk through the whole DIE
                         while i < len(dwarfArray) and dwarfArray[i]["new"] != 1:
                             if dwarfArray[i]["name"] == "DW_AT_location":
                                     struct = 1
@@ -113,17 +124,21 @@ def getDwarfVar(name):
                         #print name + " ",
                         if foundArray is not None:
                             break
-
+        #Variablename found, get type
         if foundArray is not None:
                 currentDepth = dwarfArray[foundArray]["deepth"]
                 i = foundArray
+                #goto top of this DIE
+                while i > 0 and dwarfArray[i]["new"] != 1:
+                    i -= 1
+                i += 1
+                #search for Type
                 while dwarfArray[i]["deepth"] == currentDepth and dwarfArray[i]["new"] != 1 and dwarfArray[i]["name"] != "DW_AT_type":
                     i+=1
+                #get type DIE-address
                 typeAddr = int(dwarfArray[i]["value"][1:-1],0)
+                #get type at DIE-address
                 type = getDwarfType(typeAddr)
-#                print hex(dwarfArray[foundArray]["address"])
-#                print "Type ",
-#                print type
                 if struct == 1:
                         type[1]["struct"] = 1
                 type[1]["address"] = address
@@ -159,35 +174,29 @@ def findAddress(name, useSymbolTable=False):
         
     else:
         if "." in name:
+                #structure variable  or array
                 structPath = name.split('.')
                 FoundVar = getDwarfVar(structPath[0])
                 address = int(FoundVar["address"], 16)
-#                       print "Address vorher %x" % (address)
                 for subLevel in structPath[1:]:
-#                               print "sublevel ",
-#                               print subLevel
-#                               print "addr: %x" % (address)
                         if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
+                            #search for array index
                             arrayIndex = int(subLevel[1:-1])
                             if FoundVar.has_key("array"):
                                 address +=  int(FoundVar["type"]["size"])*int(arrayIndex)
                                 FoundVar = FoundVar["type"]
                                 continue
 
-#                                print "countElements ",
-#                                print FoundVar["countElements"]
                         for i in range(0, FoundVar["countElements"]):
-#                                   print "%s == %s ??" % (subLevel, FoundVar["%d" % (i)]["name"])
+                            # search for structure element 
                             if subLevel == FoundVar["%d" % (i)]["name"]:
-#                                      print "FOUND %s" % (FoundVar["%d" % (i)]["offset"])
                                 address += int(FoundVar["%d" % (i)]["offset"], 16)
                                 break
-#                                print "Address %x" % (address)
                 return "0x%x" % (address)
         else:
+                #normal variable
                 FoundVar = getDwarfVar(name)
                 if "address" in FoundVar:
-#                       print "name: " + name + " address: " + FoundVar["address"]
                         return "0x%x" % int(FoundVar["address"], 16)
                 else:
                         print ("name: " + name + " not found ")
@@ -241,8 +250,6 @@ def updateA2L(fileName, useSymbolTable=False):
         ignore = 0
         while pos < length:
                 [pos, Token, outline] = getNextToken(pos, length)
-#                print "BAAP %d %s %s" % (pos, Token, outline)
-#                print a2lInput[0:pos]
                 if  pos < length:
                         [pos2, Token2, outline2] = getNextToken(pos, length)
                 else:
@@ -294,12 +301,6 @@ usage = """
 """
 
 parser = OptionParser(usage=usage)
-#parser.add_option("-d", "--debug",
-#                  dest="debug", default=False,
-#                  help="print debug messages to stdout")
-#parser.add_option("", "--dbcCharset", 
-#                  dest="dbcCharset", default="iso-8859-1",
-#                  help="Charset of Comments in dbc, maybe utf-8")
 parser.add_option("-s", "--useSymbolTable", action="store_true",
                   dest="useSymbolTable", default=False,
                   help="use symboltable of elf-file (much faster, but without support for structs)")
