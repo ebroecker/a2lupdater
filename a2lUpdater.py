@@ -33,7 +33,8 @@ def parseDwarfOutput(elfFileName):
 
         deepth = 0
         addr = 0
-        for line in dwarf.split('\n'):
+        splitedDwarf = dwarf.decode('utf-8').split('\n') if sys.version_info[0] == 3 else dwarf.split('\n')
+        for line in splitedDwarf:
                 if line.strip().startswith("<"):
                         new = 0
                         first = re.match('.*<([0-9a-f]+)>(.*)',line)
@@ -182,7 +183,7 @@ def findAddress(name, useSymbolTable=False):
                         if str.isdigit(subLevel[1:-1]) and subLevel[0] == "_" and subLevel[-1] == "_":
                             #search for array index
                             arrayIndex = int(subLevel[1:-1])
-                            if FoundVar.has_key("array"):
+                            if "array" in FoundVar if sys.version_info[0] == 3 else FoundVar.has_key("array"):
                                 address +=  int(FoundVar["type"]["size"])*int(arrayIndex)
                                 FoundVar = FoundVar["type"]
                                 continue
