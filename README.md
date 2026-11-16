@@ -14,4 +14,7 @@ Supports strucure elements (this is why DWARF-Info is used)
 
 any comments are welcome
 
+
+Maybe https://github.com/DanielT/a2ltool is a better option now!
+
 Eduard
